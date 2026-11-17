@@ -1,58 +1,68 @@
-# Práctica 9 — Cámara, multimedia y sensores de movimiento
+# Práctica 9 – Cámara, multimedia y sensores de movimiento
+
+App en Flutter para registrar una **bitácora de inspección**: captura fotografías con la cámara del dispositivo, lee en tiempo real el acelerómetro y el giroscopio, y guarda cada foto con su fecha/hora y los valores de los sensores en una tarjeta de evidencia.
 
 ## Objetivo
 
-Integrar captura de imágenes y lectura de sensores (acelerómetro y giroscopio) para crear interacción con el hardware del dispositivo, y desarrollar una **bitácora de inspección** que guarde foto, fecha/hora y valores de los sensores en una tarjeta de evidencia.
+Integrar captura de imágenes y lectura de sensores para crear interacción con hardware del dispositivo.
 
 ## Funciones
 
-| Pantalla | Descripción |
-|---|---|
-| Ejemplo guiado | Ejemplo del manual: botón de cámara, vista previa de la foto y lecturas X/Y/Z del acelerómetro, más la ampliación con giroscopio. |
-| Bitácora de inspección | Panel en vivo con acelerómetro y giroscopio. Al pulsar **Nueva evidencia** se toma una foto y se crea una tarjeta con la imagen, la fecha/hora y los valores de ambos sensores en ese instante. |
+- **Cámara y sensores (ejemplo guiado):** toma una fotografía con `image_picker`, la muestra en pantalla y lee los ejes X, Y y Z del acelerómetro. Como ampliación agrega la lectura del giroscopio.
+- **Manejo de cámara y permisos:** distingue captura correcta, cancelación por el usuario, permiso denegado y errores, sin cierres inesperados.
+- **Bitácora de inspección (ejercicio evaluable):**
+  - Panel de lectura en vivo del acelerómetro (m/s²) y del giroscopio (rad/s).
+  - Botón "Nueva evidencia" para capturar una fotografía.
+  - Tarjeta de evidencia con la foto, la fecha/hora y los valores de ambos sensores en el momento de la captura.
+  - Lista numerada con la evidencia más reciente primero.
+  - Aviso cuando se cancela la cámara o falta el permiso, y "No disponible" si el dispositivo no tiene alguno de los sensores.
+- **Sensores sin bloquear la interfaz:** streams con `SensorInterval.uiInterval`. Los valores en vivo van en `ValueNotifier`, así que solo se redibuja el panel. Las suscripciones se cancelan en `dispose()`.
 
-Manejo de casos:
+## Requisitos
 
-- **Cancelación de cámara:** si el usuario cierra la cámara sin tomar foto, se muestra un aviso y no se crea ninguna tarjeta.
-- **Permiso denegado:** se captura la `PlatformException` de `image_picker` y se pide habilitar el permiso en Ajustes.
-- **Sensor no disponible:** si el dispositivo no tiene giroscopio o acelerómetro, el panel muestra "No disponible" y la app sigue funcionando.
-- **Sin bloquear la interfaz:** los sensores se leen por streams con `SensorInterval.uiInterval`. Las lecturas en vivo usan `ValueNotifier`, así que solo se redibuja el panel y no la lista de tarjetas. Las suscripciones se cancelan en `dispose()`.
+- Flutter 3.x (probado con Flutter 3.47 / Dart 3.13)
+- Android Studio o Xcode
+- Dispositivo físico con cámara, acelerómetro y giroscopio, o emulador con cámara y sensores virtuales
+
+Paquetes: `image_picker`, `sensors_plus`, `intl`.
+
+## Instalación
+
+```bash
+git clone <url-del-repositorio>
+cd <carpeta-del-proyecto>
+git checkout practica-09-multimedia-sensores
+flutter pub get
+```
+
+## Ejecución
+
+```bash
+flutter run
+```
+
+En el emulador de Android los valores de los sensores se pueden cambiar desde *Extended controls → Virtual sensors*, y la cámara usa la escena virtual del emulador.
+
+## Permisos configurados
+
+| Plataforma | Archivo | Permisos |
+|---|---|---|
+| Android | `android/app/src/main/AndroidManifest.xml` | `uses-feature` de `camera`, `sensor.accelerometer` y `sensor.gyroscope` (`required="false"`). `image_picker` abre la cámara del sistema mediante un intent, por lo que no requiere `CAMERA` en tiempo de ejecución |
+| iOS | `ios/Runner/Info.plist` | `NSCameraUsageDescription`, `NSPhotoLibraryUsageDescription`, `NSMotionUsageDescription` |
 
 ## Estructura
 
 ```
 lib/
-  main.dart                     Menú principal
-  models/registro_inspeccion.dart
-  services/camara_service.dart  Captura + cancelación/permisos
-  services/sensores_service.dart Streams de sensores (inyectables)
-  pages/sensores_page.dart      Ejemplo guiado
-  pages/bitacora_page.dart      Ejercicio evaluable
-  widgets/tarjeta_evidencia.dart
-test/widget_test.dart
-docs/evidencias/practica-09/
-```
-
-## Requisitos
-
-- Flutter 3.x (SDK de Dart ≥ 3.0)
-- Dispositivo físico Android o iOS con cámara, acelerómetro y giroscopio
-- Paquetes: `image_picker`, `sensors_plus`, `intl`
-
-## Permisos
-
-| Plataforma | Configuración |
-|---|---|
-| Android | `AndroidManifest.xml`: `uses-feature` de cámara, acelerómetro y giroscopio (`required="false"`). `image_picker` abre la cámara del sistema mediante un intent, así que no hace falta declarar `CAMERA`. |
-| iOS | `Info.plist`: `NSCameraUsageDescription`, `NSPhotoLibraryUsageDescription`, `NSMotionUsageDescription`. |
-
-## Instalación y ejecución
-
-```bash
-git clone <url-del-repositorio>
-cd <carpeta>
-flutter pub get
-flutter run        # con el teléfono conectado y depuración USB activa
+  main.dart                          Menú y navegación entre pantallas
+  models/registro_inspeccion.dart    Modelo del registro y lecturas de ejes
+  services/camara_service.dart       Captura, cancelación y permisos
+  services/sensores_service.dart     Streams de acelerómetro y giroscopio
+  pages/sensores_page.dart           Ejemplo guiado
+  pages/bitacora_page.dart           Bitácora de inspección
+  widgets/tarjeta_evidencia.dart     Tarjeta con foto, fecha/hora y sensores
+test/widget_test.dart                Pruebas unitarias y de widgets
+docs/evidencias/practica-09/         Capturas y resultados de pruebas
 ```
 
 ## Pruebas
@@ -63,24 +73,16 @@ flutter analyze
 flutter test
 ```
 
-Las pruebas automáticas usan streams y cámara simulados. Cubren las lecturas en vivo, la creación de la tarjeta con valores congelados, la cancelación, el permiso denegado y el sensor no disponible.
+Resultados en [`docs/evidencias/practica-09/pruebas.md`](docs/evidencias/practica-09/pruebas.md).
 
-Casos manuales (en dispositivo físico):
+## Vinculación con el proyecto integrador
 
-1. Inclinar el teléfono y comprobar que cambian X, Y y Z del acelerómetro.
-2. Girar el teléfono y comprobar que cambia el giroscopio.
-3. Tomar una foto y verificar que se crea la tarjeta con fecha/hora y valores.
-4. Abrir la cámara y cancelar: debe aparecer "Captura cancelada".
-5. Denegar el permiso de cámara (iOS) o revocarlo en Ajustes: debe aparecer el aviso de permiso.
-
-## Evidencias
-
-Ver `docs/evidencias/practica-09/`.
+La captura de fotos y la lectura de sensores están separadas en `camara_service.dart` y `sensores_service.dart`, así que se pueden reutilizar en el proyecto integrador. Por ejemplo, para adjuntar fotografías de evidencia a un registro, o para guardar la orientación del dispositivo en el momento de una captura. Las dos dependencias se pueden inyectar, por lo que el flujo se prueba sin hardware.
 
 ## Uso de IA
 
-Este proyecto se desarrolló con apoyo de un asistente de IA (Claude) para generar y revisar el código. El equipo lo revisó, lo ejecutó en un dispositivo físico y es responsable de su contenido.
+En el desarrollo se usó un asistente de IA (Claude) como apoyo para generar y revisar el código.
 
 ## Participantes
 
-- _Nombre completo — matrícula_
+- Angel Andrei Leon Aguilar
